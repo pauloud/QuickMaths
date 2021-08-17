@@ -1,2 +1,3 @@
 # QuickMaths
-Un début d'analyseur syntaxique pour les expressions mathématiques, qui pourrait être utiles aux futurs étudiants handicapés comme moi
+Projet en pause
+Le but était de faire une application pour aider les étudiants handicapés du supérieur à taper des maths rapidement en condition d'examen
