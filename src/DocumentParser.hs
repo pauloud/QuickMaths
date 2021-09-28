@@ -1,11 +1,16 @@
 {-#LANGUAGE OverloadedStrings #-}
-module DocumentParser where
+module DocumentParser(Document,Paragraph(..),documentParser) where
     import Text.Megaparsec
-    import QuickMaths 
+    import QuickMathsParser
+     
 
-  type Text = String 
-  type Input = Text 
+    type Text = String 
+    type Input = Text 
   
-  data Paragraph = LaTeX Text | Maths MathsTree 
-  type Document = [Paragraph]
- 
+    data Paragraph = LaTeX Text | Maths MathsTree deriving Show 
+    type Document = [Paragraph]
+    singleton x = [x]
+
+    documentParser = singleton <$> Maths <$> quickMathsParser
+
+    

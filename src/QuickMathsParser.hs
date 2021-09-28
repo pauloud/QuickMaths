@@ -1,55 +1,65 @@
-module QuickMathsParser (mExpParser,MExpression,term) where
+module QuickMathsParser (quickMathsParser,MathsTree(..),term) where
+  import qualified Control.Monad.Combinators.Expr as E 
+  import qualified Text.Megaparsec.Char as C
   import Text.Megaparsec
-  import Text.Megaparsec.Char
-  import Control.Monad.Combinators.Expr
-  import qualified Text.Megaparsec.Char.Lexer as L
-  --import Data.Text(Text)
   import Data.Void
-
-  type Text = [Char]
-  type Parser = Parsec Void Text
+  --import QuickMathsLexer 
 
 
+  type Text = String 
+  --type Input = [InputWord]
+  type Parser = Parsec Void String 
 
-  operatorTable :: [[Operator Parser MExpression]]
+  data MathsTree = MathsTree [MathsTree] | MathsIdent Text | Frac MathsTree MathsTree | Parens MathsTree| -- Interval MathsTree MathsTree |CurlyB MathsTree MathsTree |SpaceL MathsTree| SpaceR MathsTree |Concat {sep :: Text, left :: MathsTree, right::MathsTree}
+       Spaces Text |Newline|Concat Text MathsTree MathsTree  deriving Show
+
+
+  
+  string = C.string--chunk $ map Char s
+  char = C.char --single (Char c)
+
+
+  newline = Newline <$ char '\n'
+  spaces = Spaces <$> some (char ' ' <|> char '\t')
+
+
+  operatorTable :: [[E.Operator Parser MathsTree]]
+  operatorTable = [[binaryL (char '*')  (Concat "×"),E.InfixL (try $ Frac <$ (char '/' <* notFollowedBy (char '/'))) ]
+                    ,[binaryL (char '+') (Concat "+"), binaryL (char '-')(Concat "-")]
+                    , [binaryL (string "//") Frac]]
+  binaryL parser function = E.InfixL $ function <$ parser 
+  
+  
+  --singleChar = single.char
+  parens =  Parens  <$> (between (char '(') (char ')') term)
+
+  
   
 
-  operatorTable = [[prefix" " SpaceL],[postfix " " SpaceR],[binaryN  "à" Bornes],[binaryL "*" (Concat "*"),binaryL "/" Frac],[binaryL "+" (Concat "+"), binaryL "-" (Concat "-")], [binaryL "#" BigFrac]]
-  {-beginWhitesOps = map (\n -> (prefix (take n (repeat ' '))  (BeginWhites n) )) [1..]
-  endWhitesOps = map (\n -> (postfix (take n (repeat ' ') ) (EndWhites n) )) [1..] not optimised-}
 
-  binaryN,binaryL :: String -> (MExpression -> MExpression -> MExpression) -> Operator Parser MExpression
-  binaryN name f = InfixN (f <$ symbol name)
-  binaryL name f = InfixL (f <$ symbol name)
-  prefix,postfix :: String -> (MExpression -> MExpression) -> Operator Parser MExpression
-  prefix  name f = Prefix  (f <$ symbol name)
-  postfix name f = Postfix (f <$ symbol name)
+
+
+  concat p1 p2 = do
+    left <- p1
+    right <- p2
+    return $ Concat mempty left right 
+  term = let  ident :: Parser MathsTree 
+              ident = MathsIdent <$> some (noneOf "\t\n+-*/")
+              {-(some $ satisfy (\t -> case t of
+                                                          LowDiv -> False
+                                                          Char '+' -> False
+                                                          Char '-' -> False 
+                                                          Char '*' -> False
+                                                          Char '/' -> False
+                                                          Char _ -> True))-} 
+                in MathsTree <$> (some $ spaces <|> ident) <?> "term"
+  mathsTerm = parens <|> term
+  mathsLine = E.makeExprParser mathsTerm operatorTable
+  quickMathsParser :: Parsec Void String MathsTree 
+  quickMathsParser = MathsTree <$> (many $ mathsLine <|> newline) 
+
+
  
-
-  symbol :: String -> Parser String
-  symbol = string
- 
-
-
- 
-  {- the MExpression is the short name for Mathematical Expression
-  -}
-
-  data MExpression =  Expression String|Frac MExpression MExpression |BigFrac MExpression MExpression| Parens MExpression| CurlyB MExpression|
-       Bornes MExpression MExpression |SpaceL MExpression| SpaceR MExpression|BeginWhites Int MExpression| EndWhites Int MExpression|Concat {sep :: String, left :: MExpression, right::MExpression} deriving Show
-  type ShortMaths = MExpression
-  curlyB =  CurlyB <$> (between (char '{') (char '}') mExpParser)
-  parens =  Parens  <$> (between (char '(') (char ')') mExpParser)
-  term :: Parser MExpression
-  term = Expression <$> many (noneOf "+-/*()#{}")
-
-
-  mTermParser,mExpParser :: Parser MExpression
-  mTermParser = choice [curlyB, parens, term]
-  mExpParser = makeExprParser mTermParser operatorTable
-  replace :: Functor f => a ->  f b -> f a
-  replace a = fmap (\_-> a) 
-  
 
 
 
