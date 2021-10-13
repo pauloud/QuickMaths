@@ -29,17 +29,18 @@ module QuickMathsBackend(docToLaTeX,LaTeX) where
         Right laTeX -> laTeX
     paragraphToLaTex (Maths mathsTree) = 
         let content mt = case mt of
-                        Spaces spaces -> foldMap' spaceToCommand spaces 
+                        MathsIdent s t -> foldMap' spaceToCommand s <> mathsIdent t 
                                             where spaceToCommand c 
                                                     |c==' ' = TeXCommS " " 
                                                     |c=='\t' = TeXCommS ";"
                                                     |otherwise = teXRaw [c]
-                        MathsIdent t -> mathsIdent t
                         Frac n d -> M.frac  (content n)  (content d)
                         Parens mt1 -> M.autoParens (content mt1) 
                         Concat sep left right -> content left <> teXRaw sep <> content right
                         MathsTree trees -> foldMap' content trees
-                        Newline -> C.newline 
+                        Newline -> C.newline
+                        GreatOp Sum (Interval inf sup) -> M.sumFromTo (content inf) (content sup) 
+                        GreatOp _ _ -> error "uknown greatop"
                 in M.mathDisplay $ content mathsTree 
 
     mathsIdent :: String -> LaTeX 

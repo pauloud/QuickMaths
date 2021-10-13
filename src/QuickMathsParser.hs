@@ -1,4 +1,4 @@
-module QuickMathsParser (quickMathsParser,MathsTree(..),term) where
+module QuickMathsParser (quickMathsParser,MathsTree(..),GreatOp(..),term) where
   import qualified Control.Monad.Combinators.Expr as E 
   import qualified Text.Megaparsec.Char as C
   --import qualified Text.LaTeX.Base.Syntax as S 
@@ -14,10 +14,10 @@ module QuickMathsParser (quickMathsParser,MathsTree(..),term) where
   --type Input = [InputWord]
   type Parser = Parsec Void String 
 
-  data GreatOp = Sum 
+  data GreatOp = Sum deriving Show 
   data MathsTree = MathsTree [MathsTree] | MathsIdent Spaces Text |Frac MathsTree MathsTree | Parens MathsTree
         |Newline|Concat Text MathsTree MathsTree |Interval MathsTree MathsTree 
-        |GreatOp GreatOp MathsTree MathsTree  
+        |GreatOp GreatOp MathsTree  
         |MemberShip MathsTree MathsTree deriving Show
 
 
@@ -27,14 +27,17 @@ module QuickMathsParser (quickMathsParser,MathsTree(..),term) where
 
 
   newline = Newline <$ char '\n'
+  spaceChar = C.char ' ' <|> C.char '\t' 
+  
 
 
 
   operatorTable :: [[E.Operator Parser MathsTree]]
-  operatorTable = [ [E.InfixL (try $ Interval <$ (string " à " ]
-                    ,[binaryL (char '*')  (Concat "\\times"),E.InfixL (try $ Frac <$ (char '/' <* notFollowedBy (char '/'))) ]
+  operatorTable = [ [E.InfixL (try $ Interval <$ string " à ") ]
+                    ,[binaryL (char '*')  (Concat "\\times"),E.InfixL (try $ Frac <$ (char '/' <* notFollowedBy (char '/')))]
                     ,[binaryL (char '+') (Concat "+"), binaryL (char '-')(Concat "-")]
-                    , [binaryL (string "//") Frac]]
+                    , [binaryL (string "//") Frac]
+                    ,[E.Prefix (GreatOp Sum <$string "SUM")]]
   binaryL parser function = E.InfixL $ function <$ parser 
   
   
@@ -48,28 +51,15 @@ module QuickMathsParser (quickMathsParser,MathsTree(..),term) where
 
 
 
-{-concat p1 p2 = do
-    left <- p1
-    right <- p2
-    return $ Concat mempty left right 
-  interval = do
-    inf <- term
-    char 'à' 
-    sup <- term 
-    return Interval inf sup -}
-  term = let  ident :: Parser MathsTree
-
-              ident =  try $ MathsIdent <$> (many (char ' ' <|> char '\t')>> notFollowedBy string "à") <*> some (noneOf "\t\n+-*/ "))
-              {-(some $ satisfy (\t -> case t of
-                                                          LowDiv -> False
-                                                          Char '+' -> False
-                                                          Char '-' -> False 
-                                                          Char '*' -> False
-                                                          Char '/' -> False
-                                                          Char _ -> True))-} 
-                in MathsTree <$> ident <?> "term"
+  term = let  withSpaces :: Parser (Text -> MathsTree)
+              withSpaces = MathsIdent <$> many spaceChar >>= (\spaces -> 
+                notFollowedBy (string "à" >> spaceChar) >> return spaces)
+              ident :: Parser MathsTree
+              ident =  try $ (withSpaces  
+                                  <*> ( (:) <$> oneOf "\t\n/+" <*> many (noneOf "\t\n/-+ ")))
+                in ident <?> "term"
   mathsTerm = parens <|> term
-  mathsLine = E.makeExprParser mathsTerm operatorTable
+  mathsLine = (E.makeExprParser mathsTerm operatorTable)
   quickMathsParser :: Parsec Void String MathsTree 
   quickMathsParser = MathsTree <$> (many $   mathsLine <|> newline) 
 
