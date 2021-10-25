@@ -14,11 +14,11 @@ module QuickMathsParser (quickMathsParser,MathsTree(..),GreatOp(..),term) where
   --type Input = [InputWord]
   type Parser = Parsec Void String 
 
-  data GreatOp = Sum deriving Show 
+  data GreatOp = Sum deriving (Show,Eq) 
   data MathsTree = MathsTree [MathsTree] | MathsIdent Spaces Text |Frac MathsTree MathsTree | Parens MathsTree
         |Newline|Concat Text MathsTree MathsTree |Interval MathsTree MathsTree 
         |GreatOp GreatOp MathsTree  
-        |MemberShip MathsTree MathsTree deriving Show
+        |MemberShip MathsTree MathsTree deriving (Show,Eq)
 
 
   
